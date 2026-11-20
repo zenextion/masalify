@@ -1,0 +1,8 @@
+[functions.username-auth]
+# Login and signup happen before a user has an access token. The handler
+# validates the username/password and uses server-side Auth operations.
+verify_jwt = false
+
+[functions.track-metadata]
+# Artist lookup is only available to signed-in Masalify users.
+verify_jwt = true
