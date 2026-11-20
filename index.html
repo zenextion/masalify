@@ -21,18 +21,18 @@
     </header>
     <section class="cloud-panel" id="cloudPanel" hidden aria-label="Ortak liste hesabı">
       <form class="cloud-auth" id="cloudAuthForm">
-        <div class="cloud-heading"><strong>Ortak listeye bağlan</strong><span>Sen ve arkadaşın burada aynı listeyi kullanabilirsiniz.</span></div>
-        <label>E-posta<input id="cloudEmail" type="email" autocomplete="email" required></label>
-        <label>Şifre<input id="cloudPassword" type="password" autocomplete="current-password" minlength="6" required></label>
+        <div class="cloud-heading"><strong>Ortak listeye bağlan</strong><span>E-posta gerekmez. Kullanıcı adını ve şifreni güvenli bir yerde sakla; e-postayla şifre sıfırlama yok.</span></div>
+        <label>Kullanıcı adı<input id="cloudUsernameInput" type="text" autocomplete="username" minlength="3" maxlength="48" pattern="[A-Za-z0-9_]+" autocapitalize="none" spellcheck="false" required></label>
+        <label>Şifre<input id="cloudPassword" type="password" autocomplete="current-password" minlength="8" required></label>
         <div class="cloud-actions"><button type="submit" id="cloudSignIn">Giriş yap</button><button type="button" id="cloudSignUp">Hesap oluştur</button></div>
       </form>
       <p class="cloud-status" id="cloudStatus" role="status" aria-live="polite">Supabase bağlantısı bekleniyor…</p>
       <div class="cloud-account" id="cloudAccount" hidden>
-        <div class="cloud-account-head"><strong id="cloudEmailLabel"></strong><button type="button" id="cloudSignOut">Çıkış</button></div>
+        <div class="cloud-account-head"><strong id="cloudUsernameLabel"></strong><button type="button" id="cloudSignOut">Çıkış</button></div>
         <div class="cloud-playlist-tools" id="cloudPlaylistTools">
           <p id="cloudPlaylistMessage">Ortak liste aranıyor…</p>
           <button type="button" id="cloudCreatePlaylist">Ortak liste oluştur</button>
-          <div class="cloud-invite" id="cloudInvite" hidden><span id="cloudPlaylistName"></span><label>Arkadaşının e-postası<input id="inviteEmail" type="email" placeholder="arkadas@example.com"></label><button type="button" id="inviteButton">Listeye davet et</button></div>
+          <div class="cloud-invite" id="cloudInvite" hidden><span id="cloudPlaylistName"></span><label>Arkadaşının kullanıcı adı<input id="inviteIdentifier" type="text" autocomplete="off" placeholder="masal"></label><button type="button" id="inviteButton">Listeye davet et</button></div>
         </div>
       </div>
     </section>

@@ -17,6 +17,7 @@ let repeat = false;
 let restorePromise = Promise.resolve();
 let cloud = null;
 let cloudUser = null;
+let cloudUsername = '';
 let activePlaylistId = null;
 let activePlaylistName = '';
 let activePlaylistOwnerId = null;
@@ -128,7 +129,14 @@ function applyRemoteTrackChange(payload) {
 
 async function loadCloudWorkspace() {
   if (!cloud || !cloudUser) return;
-  document.querySelector('#cloudEmailLabel').textContent = cloudUser.email;
+  const { data: usernameRow, error: usernameError } = await cloud.from('usernames')
+    .select('username').eq('user_id', cloudUser.id).maybeSingle();
+  if (usernameError) {
+    setCloudStatus(`Kullanıcı adı profili okunamadı: ${usernameError.message}. supabase-username-auth.sql dosyasını çalıştır.`);
+    return;
+  }
+  cloudUsername = usernameRow?.username || cloudUser.user_metadata?.username || '';
+  document.querySelector('#cloudUsernameLabel').textContent = cloudUsername || 'Hesap';
   document.querySelector('#cloudAccount').hidden = false;
   cloudAuthForm.hidden = true;
   setCloudStatus('Ortak liste kontrol ediliyor…');
@@ -191,6 +199,7 @@ async function initializeCloud() {
         if (cloudChannel) cloud.removeChannel(cloudChannel);
         cloudChannel = null;
         activePlaylistId = null;
+        cloudUsername = '';
         tracks.splice(0);
         currentIndex = -1;
         audio.pause();
@@ -322,11 +331,11 @@ cloudAuthForm.addEventListener('submit', async event => {
   event.preventDefault();
   if (!cloud) return;
   setCloudStatus('Giriş yapılıyor…');
-  const email = document.querySelector('#cloudEmail').value.trim();
+  const username = document.querySelector('#cloudUsernameInput').value.trim().toLowerCase();
   const password = document.querySelector('#cloudPassword').value;
   try {
-    const { error } = await cloud.auth.signInWithPassword({ email, password });
-    setCloudStatus(error ? `Giriş yapılamadı: ${error.message}` : 'Giriş başarılı.');
+    await usernameAuth('login', username, password);
+    setCloudStatus('Giriş başarılı.');
   } catch (error) {
     setCloudStatus(`Giriş yapılamadı: ${error.message || 'Bağlantı hatası.'}`);
   }
@@ -335,21 +344,41 @@ cloudAuthForm.addEventListener('submit', async event => {
 document.querySelector('#cloudSignUp').addEventListener('click', async () => {
   if (!cloud) return;
   setCloudStatus('Hesap oluşturuluyor…');
-  const email = document.querySelector('#cloudEmail').value.trim();
+  const username = document.querySelector('#cloudUsernameInput').value.trim().toLowerCase();
   const password = document.querySelector('#cloudPassword').value;
-  if (!email || password.length < 6) {
-    setCloudStatus('E-posta gir ve en az 6 karakterli bir şifre seç.');
+  if (!/^[a-z0-9_]{3,48}$/.test(username) || password.length < 8) {
+    setCloudStatus('3–48 karakterli kullanıcı adı (harf, rakam veya _) ve en az 8 karakterli şifre gir.');
     return;
   }
   try {
-    const { data, error } = await cloud.auth.signUp({ email, password });
-    if (error) setCloudStatus(`Hesap oluşturulamadı: ${error.message}`);
-    else if (!data.session) setCloudStatus('Hesap oluşturuldu. E-postanı doğrula, sonra giriş yap.');
-    else setCloudStatus('Hesap hazır. Şimdi ortak liste oluşturabilirsin.');
+    await usernameAuth('signup', username, password);
+    setCloudStatus('Hesap oluşturuldu ve giriş yapıldı.');
   } catch (error) {
     setCloudStatus(`Hesap oluşturulamadı: ${error.message || 'Bağlantı hatası.'}`);
   }
 });
+
+async function usernameAuth(action, username, password) {
+  if (!/^[a-z0-9_]{3,48}$/.test(username)) {
+    throw new Error('Kullanıcı adı 3–48 karakter olmalı; yalnızca İngilizce harf, rakam ve _ kullan.');
+  }
+  if (password.length < 8) throw new Error('Şifre en az 8 karakter olmalı.');
+
+  const config = window.SUPABASE_CONFIG;
+  const projectUrl = config.url.replace(/\/+$/, '');
+  const response = await fetch(`${projectUrl}/functions/v1/username-auth`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', apikey: config.anonKey },
+    body: JSON.stringify({ action, username, password })
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(result.error || 'Kimlik doğrulama isteği başarısız.');
+  if (!result.session?.access_token || !result.session?.refresh_token) {
+    throw new Error('Supabase oturum bilgisi döndürmedi.');
+  }
+  const { error } = await cloud.auth.setSession(result.session);
+  if (error) throw error;
+}
 
 document.querySelector('#cloudSignOut').addEventListener('click', async () => {
   if (!cloud) return;
@@ -371,39 +400,39 @@ document.querySelector('#cloudCreatePlaylist').addEventListener('click', async (
 
 document.querySelector('#inviteButton').addEventListener('click', async () => {
   const button = document.querySelector('#inviteButton');
-  const input = document.querySelector('#inviteEmail');
-  const email = input.value.trim().toLowerCase();
+  const input = document.querySelector('#inviteIdentifier');
+  const identifier = input.value.trim().toLowerCase();
   if (!activePlaylistId || !cloudUser) {
     setCloudStatus('Davet göndermek için önce ortak listeye giriş yap.');
     return;
   }
-  if (!input.checkValidity() || !email) {
-    setCloudStatus('Geçerli bir e-posta adresi yaz.');
+  if (!/^[a-z0-9_]{3,48}$/.test(identifier) && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(identifier)) {
+    setCloudStatus('Geçerli bir kullanıcı adı yaz. Eski e-posta hesapları için e-posta adresi de kullanılabilir.');
     input.focus();
     return;
   }
-  if (email === cloudUser.email?.toLowerCase()) {
-    setCloudStatus('Kendi hesabını davet edemezsin; arkadaşının e-postasını yaz.');
+  if (identifier === cloudUsername || identifier === cloudUser.email?.toLowerCase()) {
+    setCloudStatus('Kendi hesabını davet edemezsin; arkadaşının kullanıcı adını yaz.');
     input.focus();
     return;
   }
   button.disabled = true;
   button.textContent = 'Gönderiliyor…';
-  setCloudStatus(`${email} adresine liste daveti hazırlanıyor…`);
+  setCloudStatus(`${identifier} için liste daveti hazırlanıyor…`);
   try {
     const { data, error } = await cloud.rpc('send_playlist_invite', {
       p_playlist_id: activePlaylistId,
-      p_email: email
+      p_email: identifier
     });
     if (error) throw error;
     if (data === 'joined') {
-      setCloudStatus(`${email} hesabı ortak listeye eklendi.`);
+      setCloudStatus(`${identifier} hesabı ortak listeye eklendi.`);
       setOperationNotice('Arkadaşın daveti kabul edip giriş yapınca şarkıları görebilir.', 'success');
     } else if (data === 'already') {
-      setCloudStatus(`${email} bu ortak listede zaten var.`);
+      setCloudStatus(`${identifier} bu ortak listede zaten var.`);
     } else {
-      setCloudStatus(`Davet kaydedildi: ${email}. Arkadaşına site bağlantısını gönder; aynı e-posta ile kayıt olunca otomatik katılır.`);
-      setOperationNotice('Davet beklemede. Arkadaşın aynı e-posta ile hesap oluşturunca liste açılır.', 'success');
+      setCloudStatus(`Davet kaydedildi: ${identifier}. Arkadaşın bu kullanıcı adıyla kayıt olunca listeye katılır.`);
+      setOperationNotice('Davet beklemede. Arkadaşın davet edilen kullanıcı adıyla hesap oluşturunca liste açılır.', 'success');
     }
     input.value = '';
   } catch (error) {
