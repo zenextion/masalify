@@ -555,16 +555,13 @@ function drawTracks() {
     const title = document.createElement('span');
     title.className = 'track-title';
     title.textContent = track.title;
-    const artist = document.createElement('span');
-    artist.className = 'track-artist';
-    if (track.uploadState === 'uploading') {
-      artist.textContent = 'Yükleniyor…';
-    } else if (isSweetDreamsCaptionTrack(track)) {
-      artist.textContent = 'bizim şarkımız';
-    } else {
-      artist.hidden = true;
+    text.append(title);
+    if (track.uploadState === 'uploading' || isSweetDreamsCaptionTrack(track)) {
+      const artist = document.createElement('span');
+      artist.className = 'track-artist';
+      artist.textContent = track.uploadState === 'uploading' ? 'Yükleniyor…' : 'bizim şarkımız';
+      text.append(artist);
     }
-    text.append(title, artist);
     const tail = document.createElement('span');
     tail.className = 'track-duration';
     tail.textContent = track.uploadState === 'uploading'
