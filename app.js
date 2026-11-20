@@ -218,10 +218,11 @@ async function initializeCloud() {
 function startOptimisticCloudUpload(file) {
   const id = crypto.randomUUID();
   const extension = file.name.includes('.') ? file.name.split('.').pop().toLowerCase().replace(/[^a-z0-9]/g, '') : 'audio';
+  const metadata = getTrackMetadata(file.name);
   const track = {
     id,
-    title: cleanTitle(file.name),
-    artist: 'bizim şarkımız',
+    title: metadata.title,
+    artist: metadata.artist,
     audioBlob: file,
     url: URL.createObjectURL(file),
     coverUrl: '',
@@ -535,6 +536,19 @@ function cleanTitle(filename) {
   return filename.replace(/\.[^.]+$/, '').replace(/[._-]+/g, ' ').replace(/\s+/g, ' ').trim() || 'İsimsiz şarkı';
 }
 
+function getTrackMetadata(filename) {
+  const baseName = filename.replace(/\.[^.]+$/, '').trim();
+  const match = baseName.match(/^(.+?)\s+[-–—]\s+(.+)$/);
+  return match
+    ? { artist: match[1].trim(), title: match[2].trim() }
+    : { artist: '', title: cleanTitle(filename) };
+}
+
+function displayArtist(track) {
+  const artist = String(track?.artist || '').trim();
+  return /^bizim şarkımız$/i.test(artist) ? '' : artist;
+}
+
 function isSweetDreamsCaptionTrack(track) {
   return tracks[0] === track && /sweet\s+dreams/i.test(track.title);
 }
@@ -556,10 +570,13 @@ function drawTracks() {
     title.className = 'track-title';
     title.textContent = track.title;
     text.append(title);
-    if (track.uploadState === 'uploading' || isSweetDreamsCaptionTrack(track)) {
+    const artistName = displayArtist(track);
+    if (track.uploadState === 'uploading' || isSweetDreamsCaptionTrack(track) || artistName) {
       const artist = document.createElement('span');
       artist.className = 'track-artist';
-      artist.textContent = track.uploadState === 'uploading' ? 'Yükleniyor…' : 'bizim şarkımız';
+      artist.textContent = track.uploadState === 'uploading'
+        ? 'Yükleniyor…'
+        : isSweetDreamsCaptionTrack(track) ? 'bizim şarkımız' : artistName;
       text.append(artist);
     }
     const tail = document.createElement('span');
@@ -583,10 +600,10 @@ function setCover(track) {
   document.querySelector('#labelTitle').textContent = track ? track.title.slice(0, 13).toLocaleUpperCase('tr-TR') : 'SANA';
   document.querySelector('#labelArtist').textContent = track && isSweetDreamsCaptionTrack(track)
     ? 'bizim şarkımız'.slice(0, 14)
-    : '♡';
+    : displayArtist(track) || '♡';
   document.querySelector('#nowTitle').textContent = track?.title || 'Bir şarkı seç';
   document.querySelector('#nowArtist').textContent = track
-    ? isSweetDreamsCaptionTrack(track) ? 'bizim şarkımız' : ''
+    ? isSweetDreamsCaptionTrack(track) ? 'bizim şarkımız' : displayArtist(track)
     : 'ya da listene şarkı ekle';
   if (track?.coverPath && !track.coverUrl && !track.coverLoading && cloud) void ensureCoverUrl(track);
 }
@@ -675,9 +692,10 @@ audioInput.addEventListener('change', async event => {
   }
   await restorePromise;
   for (const file of files) {
+    const metadata = getTrackMetadata(file.name);
     const track = {
-      title: cleanTitle(file.name),
-      artist: 'bizim şarkımız',
+      title: metadata.title,
+      artist: metadata.artist,
       audioBlob: file,
       coverBlob: null,
       url: URL.createObjectURL(file),
