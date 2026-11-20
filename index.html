@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f8efe4">
+  <meta name="description" content="Sevdiğin için hazırlanmış küçük bir plak köşesi.">
+  <title>Sana Bir Şarkı — küçük plak köşemiz</title>
+  <link rel="icon" href="assets/heart.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,500;1,600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="paper-grain" aria-hidden="true"></div>
+  <main class="page-shell">
+    <header class="topbar">
+      <a class="wordmark" href="#top"><span class="wordmark-icon">♫</span> küçük plak köşemiz</a>
+      <span class="made-with"><span class="tiny-heart">♥</span> senin için, sevgiyle</span>
+    </header>
+    <section class="cloud-panel" id="cloudPanel" hidden aria-label="Ortak liste hesabı">
+      <form class="cloud-auth" id="cloudAuthForm">
+        <div class="cloud-heading"><strong>Ortak listeye bağlan</strong><span>Sen ve arkadaşın burada aynı listeyi kullanabilirsiniz.</span></div>
+        <label>E-posta<input id="cloudEmail" type="email" autocomplete="email" required></label>
+        <label>Şifre<input id="cloudPassword" type="password" autocomplete="current-password" minlength="6" required></label>
+        <div class="cloud-actions"><button type="submit" id="cloudSignIn">Giriş yap</button><button type="button" id="cloudSignUp">Hesap oluştur</button></div>
+      </form>
+      <p class="cloud-status" id="cloudStatus" role="status" aria-live="polite">Supabase bağlantısı bekleniyor…</p>
+      <div class="cloud-account" id="cloudAccount" hidden>
+        <div class="cloud-account-head"><strong id="cloudEmailLabel"></strong><button type="button" id="cloudSignOut">Çıkış</button></div>
+        <div class="cloud-playlist-tools" id="cloudPlaylistTools">
+          <p id="cloudPlaylistMessage">Ortak liste aranıyor…</p>
+          <button type="button" id="cloudCreatePlaylist">Ortak liste oluştur</button>
+          <div class="cloud-invite" id="cloudInvite" hidden><span id="cloudPlaylistName"></span><label>Arkadaşının e-postası<input id="inviteEmail" type="email" placeholder="arkadas@example.com"></label><button type="button" id="inviteButton">Listeye davet et</button></div>
+        </div>
+      </div>
+    </section>
+    <section class="hero" id="top">
+      <div class="intro">
+        <div class="eyebrow"><span></span> BİZİM ŞARKILARIMIZ</div>
+        <h1>Her şarkıda<br>biraz <em>sen.</em></h1>
+        <p class="intro-copy">Bazı şarkılar vardır, başladığı anda aklıma sen gelirsin. Bu küçük koleksiyon da tam öyle şarkılardan…</p>
+        <div class="dedication"><span class="dedication-line"></span><span>Dinlerken beni hatırla</span><span class="dedication-heart">♡</span></div>
+        <div class="vinyl-card" aria-label="Çalan şarkının plağı">
+          <div class="turntable">
+            <div class="deck-highlight"></div>
+            <div class="platter"><div class="record" id="record"><div class="record-grooves"></div><div class="record-label" id="recordLabel"><span class="label-title" id="labelTitle">SANA</span><span class="label-hole"></span><span class="label-artist" id="labelArtist">♡</span></div></div></div>
+            <div class="deck-screw screw-one"></div><div class="deck-screw screw-two"></div>
+            <div class="tonearm-base"><span></span></div>
+            <div class="tonearm" id="tonearm"><div class="arm-joint"></div><div class="arm-shaft"></div><div class="arm-head"><i></i></div></div>
+            <div class="deck-controls"><span class="control-dot"></span><span class="control-line"></span><span class="control-knob"></span></div>
+            <div class="deck-front"><span class="front-light"></span><span class="front-title">SANA BİR ŞARKI</span><span class="front-mark">♡</span></div>
+          </div>
+          <div class="table-shadow"></div><div class="sparkle sparkle-one">✳</div><div class="sparkle sparkle-two">✧</div>
+        </div>
+      </div>
+      <aside class="playlist-panel" aria-label="Şarkı listesi">
+        <div class="panel-top"><div><span class="panel-kicker">KÜÇÜK KOLEKSİYONUMUZ</span><h2>Şarkı listesi <span>♫</span></h2></div><span class="track-count" id="trackCount">00 PARÇA</span></div>
+        <div class="playlist-rule"><span></span></div>
+        <div class="track-list" id="trackList" aria-live="polite"></div>
+        <p class="operation-notice" id="operationNotice" role="status" aria-live="polite" hidden></p>
+        <div class="empty-state" id="emptyState"><div class="empty-note">♫</div><p>İlk şarkımızı plağa<br>koymaya ne dersin?</p><span>Bilgisayarından şarkı ekle</span></div>
+        <label class="add-tracks" for="audioInput"><span class="plus">＋</span><span>Şarkı ekle</span><span class="add-hint">MP3 · M4A · WAV</span></label>
+        <input id="audioInput" type="file" accept="audio/*" multiple hidden>
+        <label class="add-cover" for="coverInput"><span>▧</span> Seçili şarkıya kapak görseli ekle</label>
+        <input id="coverInput" type="file" accept="image/*" hidden>
+        <div class="panel-note" id="storageNote"><span>♡</span> Şarkılar bu tarayıcıda saklanır</div>
+      </aside>
+    </section>
+    <section class="player-bar" aria-label="Müzik oynatıcı">
+      <div class="now-playing"><div class="mini-cover" id="miniCover"><span>♡</span></div><div class="now-text"><span class="now-label">ŞİMDİ ÇALIYOR</span><strong id="nowTitle">Bir şarkı seç</strong><span id="nowArtist">ya da listene şarkı ekle</span></div><button class="like-button" id="likeButton" aria-label="Şarkıyı beğen" title="Kalbine ekle">♡</button></div>
+      <div class="transport"><div class="transport-buttons"><button class="icon-button" id="shuffleButton" aria-label="Karışık çal" title="Karışık çal">⤨</button><button class="icon-button" id="prevButton" aria-label="Önceki şarkı">|‹</button><button class="play-button" id="playButton" aria-label="Oynat"><span class="play-symbol">▶</span></button><button class="icon-button" id="nextButton" aria-label="Sonraki şarkı">›|</button><button class="icon-button repeat-button" id="repeatButton" aria-label="Tekrarla" title="Tekrarla">↻</button></div><div class="timeline"><span id="currentTime">0:00</span><input id="seekBar" type="range" min="0" max="100" value="0" aria-label="Şarkıda konum"><span id="duration">0:00</span></div></div>
+      <div class="volume"><span class="volume-icon">♫</span><input id="volumeBar" type="range" min="0" max="1" step="0.01" value="0.75" aria-label="Ses seviyesi"><span class="volume-heart">♡</span></div>
+    </section>
+    <footer><span>birlikte dinlenecek güzel şeylere</span><span>sonsuzlukta bir şarkı <b>♡</b></span></footer>
+  </main>
+  <audio id="audio" preload="metadata"></audio>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase-config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
