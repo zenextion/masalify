@@ -535,6 +535,10 @@ function cleanTitle(filename) {
   return filename.replace(/\.[^.]+$/, '').replace(/[._-]+/g, ' ').replace(/\s+/g, ' ').trim() || 'İsimsiz şarkı';
 }
 
+function isSweetDreamsCaptionTrack(track) {
+  return tracks[0] === track && /sweet\s+dreams/i.test(track.title);
+}
+
 function drawTracks() {
   trackList.replaceChildren();
   emptyState.hidden = tracks.length > 0;
@@ -553,7 +557,13 @@ function drawTracks() {
     title.textContent = track.title;
     const artist = document.createElement('span');
     artist.className = 'track-artist';
-    artist.textContent = track.uploadState === 'uploading' ? 'Yükleniyor…' : track.artist;
+    if (track.uploadState === 'uploading') {
+      artist.textContent = 'Yükleniyor…';
+    } else if (isSweetDreamsCaptionTrack(track)) {
+      artist.textContent = 'bizim şarkımız';
+    } else {
+      artist.hidden = true;
+    }
     text.append(title, artist);
     const tail = document.createElement('span');
     tail.className = 'track-duration';
@@ -574,9 +584,13 @@ function setCover(track) {
   mini.style.backgroundImage = background || 'linear-gradient(140deg,#e8b9a5,#bf777a)';
   mini.querySelector('span').hidden = Boolean(image);
   document.querySelector('#labelTitle').textContent = track ? track.title.slice(0, 13).toLocaleUpperCase('tr-TR') : 'SANA';
-  document.querySelector('#labelArtist').textContent = track ? track.artist.slice(0, 14) : '♡';
+  document.querySelector('#labelArtist').textContent = track && isSweetDreamsCaptionTrack(track)
+    ? 'bizim şarkımız'.slice(0, 14)
+    : '♡';
   document.querySelector('#nowTitle').textContent = track?.title || 'Bir şarkı seç';
-  document.querySelector('#nowArtist').textContent = track?.artist || 'ya da listene şarkı ekle';
+  document.querySelector('#nowArtist').textContent = track
+    ? isSweetDreamsCaptionTrack(track) ? 'bizim şarkımız' : ''
+    : 'ya da listene şarkı ekle';
   if (track?.coverPath && !track.coverUrl && !track.coverLoading && cloud) void ensureCoverUrl(track);
 }
 
