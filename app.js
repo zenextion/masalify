@@ -232,10 +232,25 @@ function startOptimisticCloudUpload(file) {
   drawTracks();
   setOperationNotice(`“${track.title}” yükleniyor…`);
   if (currentIndex < 0) void selectTrack(tracks.length - 1, false);
-  void persistCloudTrack(file, track, extension);
+  const artistLookup = track.artist ? Promise.resolve('') : lookupTrackArtist(track.title);
+  void persistCloudTrack(file, track, extension, artistLookup);
 }
 
-async function persistCloudTrack(file, track, extension) {
+async function lookupTrackArtist(title) {
+  if (!cloud || !cloudUser || !title) return '';
+  try {
+    const { data, error } = await cloud.functions.invoke('track-metadata', { body: { title } });
+    if (error) {
+      console.info('Müzik sanatçısı otomatik bulunamadı; yüklemeye sanatçı bilgisi olmadan devam ediliyor.');
+      return '';
+    }
+    return typeof data?.artist === 'string' ? data.artist.trim() : '';
+  } catch {
+    return '';
+  }
+}
+
+async function persistCloudTrack(file, track, extension, artistLookup) {
   const audioPath = `${activePlaylistId}/${track.id}.${extension}`;
   let uploadAttempted = false;
   let insertAttempted = false;
@@ -243,6 +258,11 @@ async function persistCloudTrack(file, track, extension) {
     uploadAttempted = true;
     const upload = await cloud.storage.from('playlist-files').upload(audioPath, file);
     if (upload.error) throw new Error(`Dosya yüklenemedi. ${upload.error.message}`);
+    track.artist = await artistLookup;
+    if (tracks.includes(track)) {
+      drawTracks();
+      if (tracks[currentIndex] === track) setCover(track);
+    }
     insertAttempted = true;
     const { data, error } = await cloud.from('tracks').insert({
       id: track.id,
