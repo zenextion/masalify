@@ -84,23 +84,6 @@ async function refreshCloudTracks() {
 }
 
 function applyRemoteTrackChange(payload) {
-  if (payload.eventType === 'DELETE') {
-    const index = tracks.findIndex(track => track.id === payload.old.id);
-    if (index >= 0) {
-      const wasCurrent = index === currentIndex;
-      const [removed] = tracks.splice(index, 1);
-      if (removed.url?.startsWith('blob:')) URL.revokeObjectURL(removed.url);
-      if (wasCurrent) {
-        audio.pause();
-        audio.removeAttribute('src');
-        currentIndex = -1;
-        setCover(null);
-      } else if (index < currentIndex) currentIndex--;
-      drawTracks();
-    }
-    return;
-  }
-
   const selectedIdBefore = tracks[currentIndex]?.id;
   const row = payload.new;
   const index = tracks.findIndex(track => track.id === row.id);
@@ -166,9 +149,16 @@ async function loadCloudWorkspace() {
   setCloudStatus('Ortak listeniz bağlı; eklenen şarkılar iki cihazda da görünür.');
   await refreshCloudTracks();
   if (cloudChannel) await cloud.removeChannel(cloudChannel);
-  cloudChannel = cloud.channel(`tracks-${activePlaylistId}`)
+  cloudChannel = cloud.channel(`playlist-tracks:${activePlaylistId}`, { config: { private: true } })
+    .on('broadcast', { event: 'track_deleted' }, ({ payload }) => {
+      if (typeof payload?.track_id === 'string') removeTrackFromView(payload.track_id);
+    })
     .on('postgres_changes', {
-      event: '*', schema: 'public', table: 'tracks',
+      event: 'INSERT', schema: 'public', table: 'tracks',
+      filter: `playlist_id=eq.${activePlaylistId}`
+    }, payload => applyRemoteTrackChange(payload))
+    .on('postgres_changes', {
+      event: 'UPDATE', schema: 'public', table: 'tracks',
       filter: `playlist_id=eq.${activePlaylistId}`
     }, payload => applyRemoteTrackChange(payload))
     .subscribe((status, error) => {
@@ -573,11 +563,90 @@ function isSweetDreamsCaptionTrack(track) {
   return tracks[0] === track && /sweet\s+dreams/i.test(track.title);
 }
 
+function removeTrackFromView(trackId) {
+  const index = tracks.findIndex(track => track.id === trackId);
+  if (index < 0) return;
+  const wasCurrent = index === currentIndex;
+  const [removed] = tracks.splice(index, 1);
+  if (removed.url?.startsWith('blob:')) URL.revokeObjectURL(removed.url);
+  if (wasCurrent) {
+    audio.pause();
+    audio.removeAttribute('src');
+    currentIndex = -1;
+  } else if (index < currentIndex) {
+    currentIndex--;
+  }
+  drawTracks();
+  if (currentIndex >= 0) setCover(tracks[currentIndex]);
+  else if (tracks.length) void selectTrack(Math.min(index, tracks.length - 1), false);
+  else setCover(null);
+}
+
+async function deleteLocalTrack(track) {
+  const database = await databaseReady;
+  const transaction = database.transaction('tracks', 'readwrite');
+  const done = transactionDone(transaction);
+  transaction.objectStore('tracks').delete(track.id);
+  await done;
+}
+
+async function deleteTrack(track) {
+  if (track.deleting || track.uploadState === 'uploading') return;
+  const confirmed = window.confirm(`“${track.title}” şarkısını listeden silmek istiyor musun?`);
+  if (!confirmed) return;
+
+  track.deleting = true;
+  const originalIndex = tracks.indexOf(track);
+  const isCloudTrack = Boolean(cloud && cloudUser && activePlaylistId && track.audioPath);
+  if (isCloudTrack) {
+    removeTrackFromView(track.id);
+    try {
+      const { data, error } = await cloud.from('tracks')
+        .delete()
+        .eq('id', track.id)
+        .eq('playlist_id', activePlaylistId)
+        .select('id')
+        .maybeSingle();
+      if (error) throw error;
+      if (!data) throw new Error('Şarkı silinemedi. Playlist üyeliğini ve RLS izinlerini kontrol et.');
+
+      const paths = [...new Set([track.audioPath, track.coverPath].filter(Boolean))];
+      if (paths.length) {
+        const { error: storageError } = await cloud.storage.from('playlist-files').remove(paths);
+        if (storageError) {
+          setOperationNotice(`Şarkı listeden silindi; dosyası depodan kaldırılamadı: ${storageError.message}`, 'error');
+          return;
+        }
+      }
+      setOperationNotice(`“${track.title}” listeden silindi.`, 'success');
+    } catch (error) {
+      await refreshCloudTracks();
+      const message = error instanceof Error ? error.message : 'Beklenmeyen bir hata oluştu.';
+      setOperationNotice(`Şarkı silinemedi: ${message}`, 'error');
+    }
+    return;
+  }
+
+  try {
+    await deleteLocalTrack(track);
+    removeTrackFromView(track.id);
+    setOperationNotice(`“${track.title}” bu cihazdan silindi.`, 'success');
+  } catch (error) {
+    track.deleting = false;
+    if (!tracks.includes(track)) tracks.splice(Math.max(0, originalIndex), 0, track);
+    drawTracks();
+    const message = error instanceof Error ? error.message : 'Beklenmeyen bir hata oluştu.';
+    setOperationNotice(`Şarkı silinemedi: ${message}`, 'error');
+  }
+}
+
 function drawTracks() {
   trackList.replaceChildren();
   emptyState.hidden = tracks.length > 0;
   trackCount.textContent = `${String(tracks.length).padStart(2, '0')} PARÇA`;
   tracks.forEach((track, index) => {
+    const row = document.createElement('div');
+    row.className = 'track-row';
     const button = document.createElement('button');
     button.className = `track${index === currentIndex ? ' active' : ''}${track.uploadState === 'uploading' ? ' uploading' : ''}`;
     button.type = 'button';
@@ -606,7 +675,16 @@ function drawTracks() {
       : index === currentIndex && Number.isFinite(audio.duration) ? timeLabel(audio.duration) : '♡';
     button.append(number, text, tail);
     button.addEventListener('click', () => selectTrack(index, true));
-    trackList.append(button);
+    const deleteButton = document.createElement('button');
+    deleteButton.className = 'track-delete';
+    deleteButton.type = 'button';
+    deleteButton.textContent = '🗑️';
+    deleteButton.title = 'Şarkıyı sil';
+    deleteButton.setAttribute('aria-label', `${track.title} şarkısını sil`);
+    deleteButton.disabled = track.uploadState === 'uploading' || track.deleting;
+    deleteButton.addEventListener('click', () => void deleteTrack(track));
+    row.append(button, deleteButton);
+    trackList.append(row);
   });
 }
 
